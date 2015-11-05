@@ -1,0 +1,26 @@
+{
+  "name": "ts-api-checker",
+  "version": "0.1.0",
+  "description": "API checker for typescript libraries",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "api",
+    "check",
+    "typescript"
+  ],
+  "dependencies": {
+      "typescript": "^1.6.2",
+      "tsreflect-compiler": "^0.1.5",
+      "commander": "^2.9.0"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.0",
+    "gulp-typescript": "^2.9.2",
+    "gulp-rename": "^1.2.2"
+  },
+  "author": "serkan-inci",
+  "license": "ISC"
+}

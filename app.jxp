@@ -1,0 +1,23 @@
+{
+	"name": "ts-api-checker",
+	"version": "1.0",
+	"author": "",
+	"description": "",
+	"company": "",
+	"copyright": "",
+	"website": "",
+	"package": null,
+	"startup": "app.js",
+	"execute": null,
+	"extract": false,
+	"output": "ts-api-checker.jx",
+	"files": [
+		"app.js",
+		"package.json"
+	],
+	"assets": [],
+	"preInstall": null,
+	"library": true,
+	"fs_reach_sources": true,
+	"native": true
+}
