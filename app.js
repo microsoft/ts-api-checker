@@ -11,6 +11,7 @@ var ApiChecker = (function () {
             .option("-b, --baseline [path]", "Specify baseline file")
             .option("-c, --compared [path]", "Specify compared file")
             .option("-v, --verbose", "Display log")
+            .option("-e, --exemptedAnnotation [annotation]", "Annotation for exempted apis (default: exemptedapi)")
             .option("-f, --filter [types]", "Types to filter")
             .parse(process.argv);
         var p = program;
@@ -31,6 +32,9 @@ var ApiChecker = (function () {
         if (p.verbose) {
             utils.setVerbosity(true);
         }
+        if (p.exemptedAnnotation) {
+            checker.setExemptedAnnotation(p.exemptedAnnotation);
+        }
     }
     ApiChecker.prototype._readMetadata = function (filepath, useExisting) {
         if (useExisting === void 0) { useExisting = false; }
@@ -47,14 +51,14 @@ var ApiChecker = (function () {
     ApiChecker.prototype.check = function () {
         var baselineMetadata = this._readMetadata(this._baseline, true);
         baselineMetadata.kind = "module";
-        baselineMetadata.name = "global";
-        var comparedMetadata = this._readMetadata(this._compared);
+        baselineMetadata.name = "_global_";
+        var comparedMetadata = this._readMetadata(this._compared, true);
         comparedMetadata.kind = "module";
-        comparedMetadata.name = "global";
+        comparedMetadata.name = "_global_";
         // Store compared types first	
         checker.storeTypes(comparedMetadata, "");
         // Check baseline types against compared
-        checker.checkTypes(baselineMetadata);
+        checker.checkTypes(baselineMetadata, "");
     };
     return ApiChecker;
 })();

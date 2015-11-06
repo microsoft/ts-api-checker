@@ -6,6 +6,11 @@ var __extends = (this && this.__extends) || function (d, b) {
 };
 var utils = require("./utils");
 var types = {};
+var exemptedAnnotation = "exemptedapi";
+function setExemptedAnnotation(annotation) {
+    exemptedAnnotation = annotation;
+}
+exports.setExemptedAnnotation = setExemptedAnnotation;
 function storeTypes(t, prefix) {
     var kind = t.kind;
     if (kind === "constructor") {
@@ -36,24 +41,50 @@ var BaseChecker = (function () {
     }
     BaseChecker.prototype.store = function (t, prefix) {
         var key = this.getKey(t, prefix);
-        types[key] = t;
-        utils.consoleLog(key);
+        this.storeByKey(key, t);
         return key;
     };
     BaseChecker.prototype.check = function (t, prefix) {
         var key = this.getKey(t, prefix);
-        types[key] = t;
-        utils.consoleLog(key);
-        return key;
+        return {
+            key: key,
+            exempted: this.checkByKey(key, t)
+        };
     };
     BaseChecker.prototype.toTypeString = function (t) {
         return "";
     };
     BaseChecker.prototype.getKey = function (t, prefix) {
-        return (prefix || "") + ":" + (t.static ? "static-" : "") + t.kind + ":" + this.getName(t);
+        return (prefix || "") + "/" + (t.static ? "static-" : "") + t.kind + ":" + this.getName(t);
     };
     BaseChecker.prototype.getName = function (t) {
         return t.name;
+    };
+    BaseChecker.prototype.storeByKey = function (key, t) {
+        types[key] = t;
+        utils.consoleLog("Storing " + key);
+    };
+    BaseChecker.prototype.checkByKey = function (key, t) {
+        var exempted = false;
+        if (!(key in types)) {
+            utils.consoleLog("actual check failed " + key);
+            if (this.isExempted(t)) {
+                exempted = true;
+            }
+            else {
+                utils.throwCompatError(key + " cannot be found.");
+            }
+        }
+        return exempted;
+    };
+    BaseChecker.prototype.isExempted = function (t) {
+        for (var _i = 0, _a = (t.annotations || []); _i < _a.length; _i++) {
+            var a = _a[_i];
+            if (a.name === exemptedAnnotation && a.value === true) {
+                return true;
+            }
+        }
+        return false;
     };
     return BaseChecker;
 })();
@@ -64,13 +95,27 @@ var ModuleChecker = (function (_super) {
     }
     ModuleChecker.prototype.store = function (t, prefix) {
         var key = _super.prototype.store.call(this, t, prefix);
-        for (var _i = 0, _a = t.declares; _i < _a.length; _i++) {
+        for (var _i = 0, _a = (t.declares || []); _i < _a.length; _i++) {
             var d = _a[_i];
             if (d.kind !== "variable" && d.kind !== "import") {
                 storeTypes(d, key);
             }
         }
         return key;
+    };
+    ModuleChecker.prototype.check = function (t, prefix) {
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        if (!checkResult.exempted || t.name === "_global_") {
+            var declares = t.declares || [];
+            utils.consoleLog("Checking declares of " + checkResult.key + " (" + declares.length + ")");
+            for (var _i = 0; _i < declares.length; _i++) {
+                var d = declares[_i];
+                if (d.kind !== "variable" && d.kind !== "import") {
+                    checkTypes(d, checkResult.key);
+                }
+            }
+        }
+        return checkResult;
     };
     return ModuleChecker;
 })(BaseChecker);
@@ -88,20 +133,19 @@ var InterfaceChecker = (function (_super) {
         }
         return key;
     };
+    InterfaceChecker.prototype.check = function (t, prefix) {
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        if (!checkResult.exempted) {
+            for (var _i = 0, _a = (t.signatures || []); _i < _a.length; _i++) {
+                var s = _a[_i];
+                checkTypes(s, checkResult.key);
+            }
+        }
+        return checkResult;
+    };
     return InterfaceChecker;
 })(BaseChecker);
 checkers["interface"] = new InterfaceChecker();
-var ObjectChecker = (function (_super) {
-    __extends(ObjectChecker, _super);
-    function ObjectChecker() {
-        _super.apply(this, arguments);
-    }
-    ObjectChecker.prototype.getName = function (t) {
-        return "";
-    };
-    return ObjectChecker;
-})(BaseChecker);
-checkers["object"] = new ObjectChecker();
 var EnumChecker = (function (_super) {
     __extends(EnumChecker, _super);
     function EnumChecker() {
@@ -111,11 +155,21 @@ var EnumChecker = (function (_super) {
         var key = _super.prototype.store.call(this, t, prefix);
         for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
             var v = _a[_i];
-            var vKey = key + ":" + v.name;
-            utils.consoleLog(vKey);
-            types[vKey] = v;
+            var vKey = key + ":" + v.name + ":" + v.value;
+            this.storeByKey(vKey, v);
         }
         return key;
+    };
+    EnumChecker.prototype.check = function (t, prefix) {
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        if (!checkResult.exempted) {
+            for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
+                var v = _a[_i];
+                var vKey = checkResult.key + ":" + v.name + ":" + v.value;
+                this.checkByKey(vKey, v);
+            }
+        }
+        return checkResult;
     };
     return EnumChecker;
 })(BaseChecker);
@@ -135,6 +189,16 @@ var ClassChecker = (function (_super) {
         }
         return key;
     };
+    ClassChecker.prototype.check = function (t, prefix) {
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
+            var m = _a[_i];
+            if (!m.private) {
+                checkTypes(m, checkResult.key);
+            }
+        }
+        return checkResult;
+    };
     return ClassChecker;
 })(BaseChecker);
 checkers["class"] = new ClassChecker();
@@ -143,84 +207,85 @@ var PropertyChecker = (function (_super) {
     function PropertyChecker() {
         _super.apply(this, arguments);
     }
+    PropertyChecker.prototype.isFunction = function (t) {
+        return typeof t.type === "object" && t.type.kind === "function";
+    };
+    PropertyChecker.prototype.getName = function (t) {
+        if (this.isFunction(t)) {
+            return t.name;
+        }
+        else {
+            return t.name + ":" + JSON.stringify(t.type);
+        }
+    };
     PropertyChecker.prototype.store = function (t, prefix) {
         var key = _super.prototype.store.call(this, t, prefix);
-        if (typeof t.type === "object") {
+        if (this.isFunction(t)) {
             storeTypes(t.type, key);
         }
         return key;
     };
+    PropertyChecker.prototype.check = function (t, prefix) {
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        if (this.isFunction(t)) {
+            checkTypes(t.type, checkResult.key);
+        }
+        return checkResult;
+    };
     return PropertyChecker;
 })(BaseChecker);
 checkers["property"] = new PropertyChecker();
-var ArrayChecker = (function (_super) {
-    __extends(ArrayChecker, _super);
-    function ArrayChecker() {
-        _super.apply(this, arguments);
-    }
-    ArrayChecker.prototype.getName = function (t) {
-        return "";
-    };
-    return ArrayChecker;
-})(BaseChecker);
-checkers["array"] = new ArrayChecker();
 var FieldChecker = (function (_super) {
     __extends(FieldChecker, _super);
     function FieldChecker() {
         _super.apply(this, arguments);
     }
     FieldChecker.prototype.getName = function (t) {
-        return (t.static ? "static" : "member") + ":" + t.name;
+        return (t.static ? "static" : "member") + ":" + t.name + ":" + JSON.stringify(t.type);
     };
     return FieldChecker;
 })(BaseChecker);
 checkers["field"] = new FieldChecker();
-var UnionChecker = (function (_super) {
-    __extends(UnionChecker, _super);
-    function UnionChecker() {
-        _super.apply(this, arguments);
-    }
-    UnionChecker.prototype.getName = function (t) {
-        return "";
-    };
-    return UnionChecker;
-})(BaseChecker);
-checkers["union"] = new UnionChecker();
-var ReferenceChecker = (function (_super) {
-    __extends(ReferenceChecker, _super);
-    function ReferenceChecker() {
-        _super.apply(this, arguments);
-    }
-    ReferenceChecker.prototype.getName = function (t) {
-        return "";
-    };
-    ReferenceChecker.prototype.store = function (t, prefix) {
-        var key = _super.prototype.store.call(this, t, prefix);
-        if (typeof t.type === "object") {
-            storeTypes(t.type, key);
-        }
-        return key;
-    };
-    return ReferenceChecker;
-})(BaseChecker);
-checkers["reference"] = new ReferenceChecker();
 var FunctionChecker = (function (_super) {
     __extends(FunctionChecker, _super);
     function FunctionChecker() {
         _super.apply(this, arguments);
     }
+    FunctionChecker.prototype.getParamKey = function (p, i, key) {
+        return key + ":" + (p.optional ? "optional" : "required") + "-param:" + i + ":" + JSON.stringify(p);
+    };
+    FunctionChecker.prototype.getReturnsKey = function (t, key) {
+        return key + ":returns:" + JSON.stringify(t.returns);
+    };
     FunctionChecker.prototype.getName = function (t) {
-        return t.name || "";
+        return (t.name || "_noname_");
     };
     FunctionChecker.prototype.store = function (t, prefix) {
         var key = _super.prototype.store.call(this, t, prefix);
         var params = t.parameters || [];
         for (var i = 0; i < params.length; i++) {
-            var pKey = key + ":param:" + i;
-            utils.consoleLog(pKey);
-            types[pKey] = params[i];
+            var p = params[i];
+            var pKey = this.getParamKey(p, i, key);
+            this.storeByKey(pKey, p);
         }
+        var returnsKey = this.getReturnsKey(t, key);
+        this.storeByKey(returnsKey, {});
         return key;
+    };
+    FunctionChecker.prototype.check = function (t, prefix) {
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        utils.consoleLog("check function params for " + checkResult.key);
+        if (!checkResult.exempted) {
+            var params = t.parameters || [];
+            for (var i = 0; i < params.length; i++) {
+                var p = params[i];
+                var pKey = this.getParamKey(p, i, checkResult.key);
+                this.checkByKey(pKey, p);
+            }
+            var returnsKey = this.getReturnsKey(t, checkResult.key);
+            this.checkByKey(returnsKey, {});
+        }
+        return checkResult;
     };
     return FunctionChecker;
 })(BaseChecker);
@@ -238,23 +303,19 @@ var CallChecker = (function (_super) {
     function CallChecker() {
         _super.apply(this, arguments);
     }
-    CallChecker.prototype.toTypeString = function (t) {
-        var params = t.parameters || [];
-        return params.map(function (p) { return JSON.stringify(p.type); }).join(",") + ":" + JSON.stringify(t.returns);
-    };
-    CallChecker.prototype.getName = function (t) {
-        return this.toTypeString(t);
-    };
     return CallChecker;
-})(BaseChecker);
+})(FunctionChecker);
 checkers["call"] = new CallChecker();
 var ConstructorChecker = (function (_super) {
     __extends(ConstructorChecker, _super);
     function ConstructorChecker() {
         _super.apply(this, arguments);
     }
+    ConstructorChecker.prototype.getName = function (t) {
+        return "_constructor_";
+    };
     return ConstructorChecker;
-})(CallChecker);
+})(FunctionChecker);
 checkers["ctor"] = new ConstructorChecker();
 var IndexChecker = (function (_super) {
     __extends(IndexChecker, _super);
@@ -262,7 +323,7 @@ var IndexChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     IndexChecker.prototype.getName = function (t) {
-        return "";
+        return "param:" + (t.parameter ? JSON.stringify(t.parameter.type) : "") + ":returns:" + (t.returns ? JSON.stringify(t.returns) : "");
     };
     return IndexChecker;
 })(BaseChecker);

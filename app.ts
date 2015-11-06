@@ -13,14 +13,15 @@ class ApiChecker {
 	private _compared: string;
 
 	constructor() {
-		
+
 		program
 			.option("-b, --baseline [path]", "Specify baseline file")
 			.option("-c, --compared [path]", "Specify compared file")
 			.option("-v, --verbose", "Display log")
+			.option("-e, --exemptedAnnotation [annotation]", "Annotation for exempted apis (default: exemptedapi)")
 			.option("-f, --filter [types]", "Types to filter")
 			.parse(process.argv);
-			
+
 		var p = <any>program;
         this._baseline = p.baseline;
         if (!this._baseline) {
@@ -40,8 +41,12 @@ class ApiChecker {
 			utils.throwError(`Compared declare does not exist: ${this._compared}`);
 		}
 
-		if(p.verbose) {
+		if (p.verbose) {
 			utils.setVerbosity(true);
+		}
+
+		if (p.exemptedAnnotation) {
+			checker.setExemptedAnnotation(p.exemptedAnnotation);
 		}
 	}
 
@@ -61,17 +66,17 @@ class ApiChecker {
 	public check(): void {
 		var baselineMetadata = this._readMetadata(this._baseline, true);
 		baselineMetadata.kind = "module";
-		baselineMetadata.name = "global";
+		baselineMetadata.name = "_global_";
 
-		var comparedMetadata = this._readMetadata(this._compared);
+		var comparedMetadata = this._readMetadata(this._compared, true);
 		comparedMetadata.kind = "module";
-		comparedMetadata.name = "global";
+		comparedMetadata.name = "_global_";
 	
 		// Store compared types first	
 		checker.storeTypes(comparedMetadata, "");
 		
 		// Check baseline types against compared
-		checker.checkTypes(baselineMetadata); 
+		checker.checkTypes(baselineMetadata, "");
 	}
 }
 

@@ -7,16 +7,16 @@ interface IType {
 	name: string;
 	private: boolean;
     static: boolean;
+	annotations?: IAnnotation[];
+	exempted?: boolean;
 }
 
 interface IModule extends IType {
 	declares: IType[];
 }
 
-interface IObject extends IType {
+interface IInterface extends IType {
 	signatures: IType[];
-}
-interface IInterface extends IObject {
 }
 
 interface IProperty extends IType {
@@ -36,19 +36,13 @@ interface IClass extends IType {
 	members: IType[];
 }
 
-interface IReference extends IType {
-	type: string | IType;
-	arguments: string[] | IType[];
-}
-
 interface IParameter extends IType {
 	optional?: boolean;
 	type: IType;
 }
 
 interface IField extends IType {
-	private: boolean;
-	protected: boolean;
+	type: IType;
 }
 
 interface IFunction extends IType {
@@ -70,8 +64,9 @@ interface IIndex extends IType {
 	returns: string | IType;
 }
 
-interface IUnion extends IType {
-	types: any[];
+interface IAnnotation {
+	name: string;
+	value: any;
 }
 
 interface ComparedTypes {

@@ -5,6 +5,10 @@ function throwError(message) {
     process.exit(1);
 }
 exports.throwError = throwError;
+function throwCompatError(message) {
+    throwError(message + " This will break compatibility for API consumers.");
+}
+exports.throwCompatError = throwCompatError;
 function setVerbosity(v) {
     verbose = v;
 }
