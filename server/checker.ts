@@ -49,7 +49,6 @@ var checkers: { [kind: string]: IChecker } = {};
 interface IChecker {
 	store(t: IType, prefix: string): string;
 	check(t: IType, prefix: string): CheckResult;
-	toTypeString(t: IType): string;
 }
 
 class BaseChecker implements IChecker {
@@ -65,10 +64,6 @@ class BaseChecker implements IChecker {
 			key: key,
 			exempted: this.checkByKey(key, t)
 		}
-	}
-
-	public toTypeString(t: IType): string {
-		return "";
 	}
 
 	protected getKey(t: IType, prefix: string): string {

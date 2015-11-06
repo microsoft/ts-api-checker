@@ -3,51 +3,51 @@
 /// <reference path="./tsreflect-compiler/tsreflect-compiler.d.ts" />
 
 interface IType {
-	kind: string;
-	name: string;
-	private: boolean;
+    kind: string;
+    name: string;
+    private: boolean;
     static: boolean;
-	annotations?: IAnnotation[];
-	exempted?: boolean;
+    annotations?: IAnnotation[];
+    exempted?: boolean;
 }
 
 interface IModule extends IType {
-	declares: IType[];
+    declares: IType[];
 }
 
 interface IInterface extends IType {
-	signatures: IType[];
+    signatures: IType[];
 }
 
 interface IProperty extends IType {
-	type: string | IType;
-	optional?: boolean;
+    type: string | IType;
+    optional?: boolean;
 }
 
 interface IEnumValue extends IType {
-	value: number;
+    value: number;
 }
 
 interface IEnum extends IType {
-	members: IEnumValue[];
+    members: IEnumValue[];
 }
 
 interface IClass extends IType {
-	members: IType[];
+    members: IType[];
 }
 
 interface IParameter extends IType {
-	optional?: boolean;
-	type: IType;
+    optional?: boolean;
+    type: IType;
 }
 
 interface IField extends IType {
-	type: IType;
+    type: IType;
 }
 
 interface IFunction extends IType {
-	parameters: IParameter[];
-	returns: string | IType;
+    parameters: IParameter[];
+    returns: string | IType;
 }
 
 interface IMethod extends IFunction {
@@ -60,15 +60,15 @@ interface ICall extends IFunction {
 }
 
 interface IIndex extends IType {
-	parameter: IParameter;
-	returns: string | IType;
+    parameter: IParameter;
+    returns: string | IType;
 }
 
 interface IAnnotation {
-	name: string;
-	value: any;
+    name: string;
+    value: any;
 }
 
 interface ComparedTypes {
-	[kind: string]: IType;
+    [kind: string]: IType;
 }
