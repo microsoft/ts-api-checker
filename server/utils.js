@@ -1,6 +1,7 @@
 /// <reference path="../types/tsd" />
 var verbose = false;
-function throwError(message) {
+function throwError(message, showHelp) {
+    if (showHelp === void 0) { showHelp = false; }
     console.error(message);
     process.exit(1);
 }

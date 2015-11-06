@@ -7,11 +7,19 @@ var __extends = (this && this.__extends) || function (d, b) {
 var utils = require("./utils");
 var types = {};
 var exemptedAnnotation = "exemptedapi";
+var excludedKinds = ["variable", "import"];
 function setExemptedAnnotation(annotation) {
     exemptedAnnotation = annotation;
 }
 exports.setExemptedAnnotation = setExemptedAnnotation;
-function storeTypes(t, prefix) {
+function setExcludedKinds(kinds) {
+    excludedKinds = kinds.split(",").map(function (k) { return k.trim(); });
+}
+exports.setExcludedKinds = setExcludedKinds;
+function isExcluded(t) {
+    return excludedKinds.indexOf(t.kind) >= 0;
+}
+function findChecker(t) {
     var kind = t.kind;
     if (kind === "constructor") {
         kind = "ctor";
@@ -20,19 +28,14 @@ function storeTypes(t, prefix) {
     if (!checker) {
         utils.throwError("Unknown kind: " + kind);
     }
-    checker.store(t, prefix);
+    return checker;
+}
+function storeTypes(t, prefix) {
+    findChecker(t).store(t, prefix);
 }
 exports.storeTypes = storeTypes;
 function checkTypes(t, prefix) {
-    var kind = t.kind;
-    if (kind === "constructor") {
-        kind = "ctor";
-    }
-    var checker = checkers[kind];
-    if (!checker) {
-        utils.throwError("Unknown kind: " + kind);
-    }
-    checker.check(t, prefix);
+    findChecker(t).check(t, prefix);
 }
 exports.checkTypes = checkTypes;
 var checkers = {};
@@ -51,13 +54,10 @@ var BaseChecker = (function () {
             exempted: this.checkByKey(key, t)
         };
     };
-    BaseChecker.prototype.toTypeString = function (t) {
-        return "";
-    };
     BaseChecker.prototype.getKey = function (t, prefix) {
-        return (prefix || "") + "/" + (t.static ? "static-" : "") + t.kind + ":" + this.getName(t);
+        return (prefix || "") + "/" + (t.static ? "static-" : "") + t.kind + ":" + this.getId(t);
     };
-    BaseChecker.prototype.getName = function (t) {
+    BaseChecker.prototype.getId = function (t) {
         return t.name;
     };
     BaseChecker.prototype.storeByKey = function (key, t) {
@@ -78,13 +78,8 @@ var BaseChecker = (function () {
         return exempted;
     };
     BaseChecker.prototype.isExempted = function (t) {
-        for (var _i = 0, _a = (t.annotations || []); _i < _a.length; _i++) {
-            var a = _a[_i];
-            if (a.name === exemptedAnnotation && a.value === true) {
-                return true;
-            }
-        }
-        return false;
+        return (t.annotations || [])
+            .some(function (a) { return a.name === exemptedAnnotation && a.value === true; });
     };
     return BaseChecker;
 })();
@@ -94,26 +89,22 @@ var ModuleChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     ModuleChecker.prototype.store = function (t, prefix) {
+        // Store module itself first
         var key = _super.prototype.store.call(this, t, prefix);
-        for (var _i = 0, _a = (t.declares || []); _i < _a.length; _i++) {
-            var d = _a[_i];
-            if (d.kind !== "variable" && d.kind !== "import") {
-                storeTypes(d, key);
-            }
-        }
+        // Store declares inside this module
+        (t.declares || []).filter(function (d) { return !isExcluded(d); })
+            .forEach(function (d) { return storeTypes(d, key); });
         return key;
     };
     ModuleChecker.prototype.check = function (t, prefix) {
+        // Check module itself first
         var checkResult = _super.prototype.check.call(this, t, prefix);
+        // Don't check declares in this module if the module is global or module is exempted 
         if (!checkResult.exempted || t.name === "_global_") {
             var declares = t.declares || [];
             utils.consoleLog("Checking declares of " + checkResult.key + " (" + declares.length + ")");
-            for (var _i = 0; _i < declares.length; _i++) {
-                var d = declares[_i];
-                if (d.kind !== "variable" && d.kind !== "import") {
-                    checkTypes(d, checkResult.key);
-                }
-            }
+            declares.filter(function (d) { return !isExcluded(d); })
+                .forEach(function (d) { return checkTypes(d, checkResult.key); });
         }
         return checkResult;
     };
@@ -126,20 +117,18 @@ var InterfaceChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     InterfaceChecker.prototype.store = function (t, prefix) {
+        // Store interface itself first
         var key = _super.prototype.store.call(this, t, prefix);
-        for (var _i = 0, _a = (t.signatures || []); _i < _a.length; _i++) {
-            var s = _a[_i];
-            storeTypes(s, key);
-        }
+        // Store signatures of the interface
+        (t.signatures || []).forEach(function (s) { return storeTypes(s, key); });
         return key;
     };
     InterfaceChecker.prototype.check = function (t, prefix) {
+        // Check interface itself first
         var checkResult = _super.prototype.check.call(this, t, prefix);
+        // Don't check signatures of this interface if interface is exempted
         if (!checkResult.exempted) {
-            for (var _i = 0, _a = (t.signatures || []); _i < _a.length; _i++) {
-                var s = _a[_i];
-                checkTypes(s, checkResult.key);
-            }
+            (t.signatures || []).forEach(function (s) { return checkTypes(s, checkResult.key); });
         }
         return checkResult;
     };
@@ -152,22 +141,26 @@ var EnumChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     EnumChecker.prototype.store = function (t, prefix) {
+        var _this = this;
+        // Store enum itself first
         var key = _super.prototype.store.call(this, t, prefix);
-        for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
-            var v = _a[_i];
+        // Store enum members
+        (t.members || []).forEach(function (v) {
             var vKey = key + ":" + v.name + ":" + v.value;
-            this.storeByKey(vKey, v);
-        }
+            _this.storeByKey(vKey, v);
+        });
         return key;
     };
     EnumChecker.prototype.check = function (t, prefix) {
+        var _this = this;
+        // Check enum itself first
         var checkResult = _super.prototype.check.call(this, t, prefix);
+        // Don't check members of this enum if enum is exempted
         if (!checkResult.exempted) {
-            for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
-                var v = _a[_i];
+            (t.members || []).forEach(function (v) {
                 var vKey = checkResult.key + ":" + v.name + ":" + v.value;
-                this.checkByKey(vKey, v);
-            }
+                _this.checkByKey(vKey, v);
+            });
         }
         return checkResult;
     };
@@ -180,22 +173,18 @@ var ClassChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     ClassChecker.prototype.store = function (t, prefix) {
+        // Store class itself first
         var key = _super.prototype.store.call(this, t, prefix);
-        for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
-            var m = _a[_i];
-            if (!m.private) {
-                storeTypes(m, key);
-            }
-        }
+        // Store class members
+        (t.members || []).filter(function (m) { return !m.private; }).forEach(function (m) { return storeTypes(m, key); });
         return key;
     };
     ClassChecker.prototype.check = function (t, prefix) {
+        // Check class itself first
         var checkResult = _super.prototype.check.call(this, t, prefix);
-        for (var _i = 0, _a = (t.members || []); _i < _a.length; _i++) {
-            var m = _a[_i];
-            if (!m.private) {
-                checkTypes(m, checkResult.key);
-            }
+        // Don't check members of this class if class is exempted
+        if (!checkResult.exempted) {
+            (t.members || []).filter(function (m) { return !m.private; }).forEach(function (m) { return checkTypes(m, checkResult.key); });
         }
         return checkResult;
     };
@@ -210,7 +199,7 @@ var PropertyChecker = (function (_super) {
     PropertyChecker.prototype.isFunction = function (t) {
         return typeof t.type === "object" && t.type.kind === "function";
     };
-    PropertyChecker.prototype.getName = function (t) {
+    PropertyChecker.prototype.getId = function (t) {
         if (this.isFunction(t)) {
             return t.name;
         }
@@ -219,15 +208,19 @@ var PropertyChecker = (function (_super) {
         }
     };
     PropertyChecker.prototype.store = function (t, prefix) {
+        // Store property itself first
         var key = _super.prototype.store.call(this, t, prefix);
+        // Store sub members if property is of type function
         if (this.isFunction(t)) {
             storeTypes(t.type, key);
         }
         return key;
     };
     PropertyChecker.prototype.check = function (t, prefix) {
+        // Check property itself first
         var checkResult = _super.prototype.check.call(this, t, prefix);
-        if (this.isFunction(t)) {
+        // Don't check if this property is exempted or property type is not function
+        if (!checkResult.exempted && this.isFunction(t)) {
             checkTypes(t.type, checkResult.key);
         }
         return checkResult;
@@ -240,7 +233,7 @@ var FieldChecker = (function (_super) {
     function FieldChecker() {
         _super.apply(this, arguments);
     }
-    FieldChecker.prototype.getName = function (t) {
+    FieldChecker.prototype.getId = function (t) {
         return (t.static ? "static" : "member") + ":" + t.name + ":" + JSON.stringify(t.type);
     };
     return FieldChecker;
@@ -257,31 +250,34 @@ var FunctionChecker = (function (_super) {
     FunctionChecker.prototype.getReturnsKey = function (t, key) {
         return key + ":returns:" + JSON.stringify(t.returns);
     };
-    FunctionChecker.prototype.getName = function (t) {
+    FunctionChecker.prototype.getId = function (t) {
         return (t.name || "_noname_");
     };
     FunctionChecker.prototype.store = function (t, prefix) {
+        var _this = this;
+        // Store function itself first
         var key = _super.prototype.store.call(this, t, prefix);
-        var params = t.parameters || [];
-        for (var i = 0; i < params.length; i++) {
-            var p = params[i];
-            var pKey = this.getParamKey(p, i, key);
-            this.storeByKey(pKey, p);
-        }
+        // Store function params
+        (t.parameters || []).forEach(function (p, i) {
+            var pKey = _this.getParamKey(p, i, key);
+            _this.storeByKey(pKey, p);
+        });
+        // Store returns type
         var returnsKey = this.getReturnsKey(t, key);
         this.storeByKey(returnsKey, {});
         return key;
     };
     FunctionChecker.prototype.check = function (t, prefix) {
+        var _this = this;
+        // Check function itself first
         var checkResult = _super.prototype.check.call(this, t, prefix);
-        utils.consoleLog("check function params for " + checkResult.key);
+        // Don't check the parameters if the function is exempted
         if (!checkResult.exempted) {
-            var params = t.parameters || [];
-            for (var i = 0; i < params.length; i++) {
-                var p = params[i];
-                var pKey = this.getParamKey(p, i, checkResult.key);
-                this.checkByKey(pKey, p);
-            }
+            (t.parameters || []).forEach(function (p, i) {
+                var pKey = _this.getParamKey(p, i, checkResult.key);
+                _this.checkByKey(pKey, p);
+            });
+            // Check returns type
             var returnsKey = this.getReturnsKey(t, checkResult.key);
             this.checkByKey(returnsKey, {});
         }
@@ -311,7 +307,7 @@ var ConstructorChecker = (function (_super) {
     function ConstructorChecker() {
         _super.apply(this, arguments);
     }
-    ConstructorChecker.prototype.getName = function (t) {
+    ConstructorChecker.prototype.getId = function (t) {
         return "_constructor_";
     };
     return ConstructorChecker;
@@ -322,7 +318,7 @@ var IndexChecker = (function (_super) {
     function IndexChecker() {
         _super.apply(this, arguments);
     }
-    IndexChecker.prototype.getName = function (t) {
+    IndexChecker.prototype.getId = function (t) {
         return "param:" + (t.parameter ? JSON.stringify(t.parameter.type) : "") + ":returns:" + (t.returns ? JSON.stringify(t.returns) : "");
     };
     return IndexChecker;

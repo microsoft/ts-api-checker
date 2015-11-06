@@ -18,27 +18,28 @@ class ApiChecker {
             .option("-b, --baseline [path]", "Specify baseline file")
             .option("-c, --compared [path]", "Specify compared file")
             .option("-v, --verbose", "Display log")
-            .option("-e, --exemptedAnnotation [annotation]", "Annotation for exempted apis (default: exemptedapi)")
-            .option("-f, --filter [types]", "Types to filter")
+            .option("-e, --exemptedAnnotation [annotation]", "Annotation for exempted apis [default: exemptedapi]")
+            .option("-x, --excludedKinds [kinds]", "Kinds to exclude during check (comma separated) [default: variable, import]")
             .parse(process.argv);
 
         var p = <any>program;
+        
         this._baseline = p.baseline;
         if (!this._baseline) {
-            utils.throwError("Specify baseline declare file.");
+            utils.throwError("Specify baseline file.");
         }
 
         if (!fs.existsSync(this._baseline)) {
-            utils.throwError(`Baseline declare does not exist: ${this._baseline}`);
+            utils.throwError(`Baseline file does not exist: ${this._baseline}`);
         }
 
         this._compared = p.compared;
         if (!this._compared) {
-            utils.throwError("Specify compared declare file.");
+            utils.throwError("Specify compared file.");
         }
 
         if (!fs.existsSync(this._compared)) {
-            utils.throwError(`Compared declare does not exist: ${this._compared}`);
+            utils.throwError(`Compared file does not exist: ${this._compared}`);
         }
 
         if (p.verbose) {
@@ -48,15 +49,19 @@ class ApiChecker {
         if (p.exemptedAnnotation) {
             checker.setExemptedAnnotation(p.exemptedAnnotation);
         }
+        
+        if(p.excludedKinds) {
+            checker.setExcludedKinds(p.excludedKinds);
+        }
     }
-
-    private _readMetadata(filepath: string, useExisting: boolean = false): any {
+    
+    private readMetadata(filepath: string, useExisting: boolean = false): any {
         var filename = path.basename(filepath, ".ts");
         var dirname = path.dirname(filepath);
         var metadataPath = path.join(dirname, filename + ".d.json");
-        utils.consoleLog("metadata path:" + metadataPath);
+        
         if (!useExisting || !fs.existsSync(metadataPath)) {
-            // compile
+            // Compile the file to extract metadata
             compile.TsReflect.compile([filepath], dirname);
         }
 
@@ -64,18 +69,18 @@ class ApiChecker {
     }
 
     public check(): void {
-        var baselineMetadata = this._readMetadata(this._baseline, true);
+        var baselineMetadata = this.readMetadata(this._baseline, true);
         baselineMetadata.kind = "module";
         baselineMetadata.name = "_global_";
 
-        var comparedMetadata = this._readMetadata(this._compared, true);
+        var comparedMetadata = this.readMetadata(this._compared, false);
         comparedMetadata.kind = "module";
         comparedMetadata.name = "_global_";
 	
         // Store compared types first	
         checker.storeTypes(comparedMetadata, "");
 		
-        // Check baseline types against compared
+        // Check baseline types against stored types
         checker.checkTypes(baselineMetadata, "");
     }
 }
