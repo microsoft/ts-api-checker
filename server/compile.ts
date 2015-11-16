@@ -7,21 +7,17 @@ import tsreflect = require("tsreflect-compiler");
 import utils = require("./utils");
 
 export class TsReflect {
-    public static compile(inputFiles: string[], outputPath: string): void {
-        utils.consoleLog(`Compiling sources..(${inputFiles.length} ts files), output: ${outputPath}`);
+    public static compile(inputFiles: string[]): void {
+        utils.consoleLog(`Compiling sources..(${inputFiles.length} ts files)`);
+        
         // Compile using tsreflect-compiler
-        var diagnostics = tsreflect.compile(inputFiles, {
-            outDir: outputPath,
-            ignoreAnnotation: {
-                "returns": true,
-                "return": true,
-                "param": true,
-                "notes": true
-            }
+        tsreflect.compile(inputFiles, <any>{
+            target: 1,
+            module: 2
         });
 
         // Dump issues to console
-        this._reportIssues(diagnostics);
+        //this._reportIssues(diagnostics);
         utils.consoleLog("Compiling finished.");
     }
 

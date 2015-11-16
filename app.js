@@ -43,11 +43,10 @@ var ApiChecker = (function () {
         if (useExisting === void 0) { useExisting = false; }
         var filename = path.basename(filepath, ".ts");
         var dirname = path.dirname(filepath);
-        var metadataPath = path.join(dirname, filename + ".d.json");
+        var metadataPath = path.join(dirname, filename + ".json");
         if (!useExisting || !fs.existsSync(metadataPath)) {
-            utils.consoleLog("Parsing " + filepath);
             // Compile the file to extract metadata
-            compile.TsReflect.compile([filepath], dirname);
+            compile.TsReflect.compile([filepath]);
         }
         return JSON.parse(fs.readFileSync(metadataPath, "UTF8"));
     };
