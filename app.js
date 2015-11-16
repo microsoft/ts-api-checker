@@ -45,6 +45,7 @@ var ApiChecker = (function () {
         var dirname = path.dirname(filepath);
         var metadataPath = path.join(dirname, filename + ".d.json");
         if (!useExisting || !fs.existsSync(metadataPath)) {
+            utils.consoleLog("Parsing " + filepath);
             // Compile the file to extract metadata
             compile.TsReflect.compile([filepath], dirname);
         }

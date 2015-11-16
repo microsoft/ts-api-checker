@@ -13,11 +13,29 @@
 	"output": "ts-api-checker.jx",
 	"files": [
 		"app.js",
-		"package.json"
+		"gulpfile.js",
+		"node_modules\\commander\\index.js",
+		"node_modules\\commander\\node_modules\\graceful-readlink\\index.js",
+		"node_modules\\commander\\node_modules\\graceful-readlink\\package.json",
+		"node_modules\\commander\\package.json",
+		"node_modules\\tsreflect-compiler\\lib\\lib.core.d.json",
+		"node_modules\\tsreflect-compiler\\lib\\lib.d.json",
+		"node_modules\\tsreflect-compiler\\lib\\lib.dom.d.json",
+		"node_modules\\tsreflect-compiler\\lib\\lib.scriptHost.d.json",
+		"node_modules\\tsreflect-compiler\\lib\\lib.webworker.d.json",
+		"node_modules\\tsreflect-compiler\\lib\\tsreflect-compiler.js",
+		"node_modules\\tsreflect-compiler\\lib\\tsreflect.config.json",
+		"node_modules\\tsreflect-compiler\\package.json",
+		"package.json",
+		"server\\checker.js",
+		"server\\compile.js",
+		"server\\utils.js"
 	],
-	"assets": [],
+	"assets": [
+	],
 	"preInstall": null,
 	"library": true,
+	"readme_file": "README.md",
 	"fs_reach_sources": true,
-	"native": true
+    "native": true
 }
