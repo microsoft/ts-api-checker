@@ -55,7 +55,7 @@ var BaseChecker = (function () {
         };
     };
     BaseChecker.prototype.getKey = function (t, prefix) {
-        return (prefix || "") + "/" + (t.static ? "static-" : "") + t.kind + ":" + this.getId(t);
+        return (prefix || "") + "**" + (t.static ? "static-" : "") + t.kind + "::" + this.getId(t);
     };
     BaseChecker.prototype.getId = function (t) {
         return t.name;
@@ -65,15 +65,9 @@ var BaseChecker = (function () {
         utils.consoleLog("Storing " + key);
     };
     BaseChecker.prototype.checkByKey = function (key, t) {
-        var exempted = false;
-        if (!(key in types)) {
-            utils.consoleLog("actual check failed " + key);
-            if (this.isExempted(t)) {
-                exempted = true;
-            }
-            else {
-                utils.throwCompatError(key + " cannot be found.");
-            }
+        var exempted = this.isExempted(t);
+        if (!(key in types) && !exempted) {
+            utils.throwCompatError(key);
         }
         return exempted;
     };
@@ -146,7 +140,7 @@ var EnumChecker = (function (_super) {
         var key = _super.prototype.store.call(this, t, prefix);
         // Store enum members
         (t.members || []).forEach(function (v) {
-            var vKey = key + ":" + v.name + ":" + v.value;
+            var vKey = key + "::" + v.name + ":" + v.value;
             _this.storeByKey(vKey, v);
         });
         return key;
@@ -158,7 +152,7 @@ var EnumChecker = (function (_super) {
         // Don't check members of this enum if enum is exempted
         if (!checkResult.exempted) {
             (t.members || []).forEach(function (v) {
-                var vKey = checkResult.key + ":" + v.name + ":" + v.value;
+                var vKey = checkResult.key + "::" + v.name + ":" + v.value;
                 _this.checkByKey(vKey, v);
             });
         }
@@ -245,10 +239,10 @@ var FunctionChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     FunctionChecker.prototype.getParamKey = function (p, i, key) {
-        return key + ":" + (p.optional ? "optional" : "required") + "-param:" + i + ":" + JSON.stringify(p);
+        return key + "**" + (p.optional ? "optional" : "required") + "-param:" + (i + 1) + "::" + JSON.stringify(p);
     };
     FunctionChecker.prototype.getReturnsKey = function (t, key) {
-        return key + ":returns:" + JSON.stringify(t.returns);
+        return key + "**returns::" + JSON.stringify(t.returns);
     };
     FunctionChecker.prototype.getId = function (t) {
         return (t.name || "_noname_");
@@ -275,6 +269,9 @@ var FunctionChecker = (function (_super) {
         if (!checkResult.exempted) {
             (t.parameters || []).forEach(function (p, i) {
                 var pKey = _this.getParamKey(p, i, checkResult.key);
+                if (prefix.indexOf("SearchCore") >= 0) {
+                    console.log('test' + pKey);
+                }
                 _this.checkByKey(pKey, p);
             });
             // Check returns type
@@ -324,3 +321,27 @@ var IndexChecker = (function (_super) {
     return IndexChecker;
 })(BaseChecker);
 checkers["index"] = new IndexChecker();
+var AliasChecker = (function (_super) {
+    __extends(AliasChecker, _super);
+    function AliasChecker() {
+        _super.apply(this, arguments);
+    }
+    AliasChecker.prototype.store = function (t, prefix) {
+        // Store interface itself first
+        var key = _super.prototype.store.call(this, t, prefix);
+        // Store the type of this alias
+        storeTypes(t.type, key);
+        return key;
+    };
+    AliasChecker.prototype.check = function (t, prefix) {
+        // Check interface itself first
+        var checkResult = _super.prototype.check.call(this, t, prefix);
+        // Don't check signatures of this interface if interface is exempted
+        if (!checkResult.exempted) {
+            checkTypes(t.type, checkResult.key);
+        }
+        return checkResult;
+    };
+    return AliasChecker;
+})(BaseChecker);
+checkers["alias"] = new AliasChecker();

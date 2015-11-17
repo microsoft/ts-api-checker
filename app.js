@@ -7,6 +7,7 @@ var compile = require("./server/compile");
 var checker = require("./server/checker");
 var ApiChecker = (function () {
     function ApiChecker() {
+        console.log("Checking TypeScript API compatibility...");
         program
             .option("-b, --baseline [path]", "Specify baseline file")
             .option("-c, --compared [path]", "Specify compared file")
@@ -20,14 +21,14 @@ var ApiChecker = (function () {
             utils.throwError("Specify baseline file.");
         }
         if (!fs.existsSync(this._baseline)) {
-            utils.throwError("Baseline file does not exist: " + this._baseline);
+            utils.throwError("Baseline file " + this._baseline + " does not exist.");
         }
         this._compared = p.compared;
         if (!this._compared) {
             utils.throwError("Specify compared file.");
         }
         if (!fs.existsSync(this._compared)) {
-            utils.throwError("Compared file does not exist: " + this._compared);
+            utils.throwError("Compared file " + this._compared + " does not exist.");
         }
         if (p.verbose) {
             utils.setVerbosity(true);

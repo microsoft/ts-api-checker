@@ -11,13 +11,13 @@ export class TsReflect {
         utils.consoleLog(`Compiling sources..(${inputFiles.length} ts files)`);
         
         // Compile using tsreflect-compiler
-        tsreflect.compile(inputFiles, <any>{
+        var diagnostics = tsreflect.compile(inputFiles, <any>{
             target: 1,
             module: 2
         });
 
         // Dump issues to console
-        //this._reportIssues(diagnostics);
+        this._reportIssues(diagnostics);
         utils.consoleLog("Compiling finished.");
     }
 

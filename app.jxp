@@ -13,7 +13,6 @@
 	"output": "ts-api-checker.jx",
 	"files": [
 		"app.js",
-		"gulpfile.js",
 		"node_modules\\commander\\index.js",
 		"node_modules\\commander\\node_modules\\graceful-readlink\\index.js",
 		"node_modules\\commander\\node_modules\\graceful-readlink\\package.json",

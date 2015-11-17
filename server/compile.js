@@ -7,12 +7,12 @@ var TsReflect = (function () {
     TsReflect.compile = function (inputFiles) {
         utils.consoleLog("Compiling sources..(" + inputFiles.length + " ts files)");
         // Compile using tsreflect-compiler
-        tsreflect.compile(inputFiles, {
+        var diagnostics = tsreflect.compile(inputFiles, {
             target: 1,
             module: 2
         });
         // Dump issues to console
-        //this._reportIssues(diagnostics);
+        this._reportIssues(diagnostics);
         utils.consoleLog("Compiling finished.");
     };
     TsReflect._reportIssues = function (compileIssues) {

@@ -64,6 +64,10 @@ interface IIndex extends IType {
     returns: string | IType;
 }
 
+interface IAlias extends IType {
+    type: IType;
+}
+
 interface IAnnotation {
     name: string;
     value: any;

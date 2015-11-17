@@ -70,7 +70,7 @@ class BaseChecker implements IChecker {
     }
 
     protected getKey(t: IType, prefix: string): string {
-        return `${prefix || ""}/${t.static ? "static-" : ""}${t.kind}:${this.getId(t) }`;
+        return `${prefix || ""}**${t.static ? "static-" : ""}${t.kind}::${this.getId(t) }`;
     }
 
     protected getId(t: IType): string {
@@ -83,14 +83,9 @@ class BaseChecker implements IChecker {
     }
 
     protected checkByKey(key: string, t: IType): boolean {
-        var exempted = false;
-        if (!(key in types)) {
-            utils.consoleLog(`actual check failed ${key}`);
-            if (this.isExempted(t)) {
-                exempted = true;
-            } else {
-                utils.throwCompatError(`${key} cannot be found.`);
-            }
+        var exempted = this.isExempted(t);
+        if (!(key in types) && !exempted) {
+            utils.throwCompatError(key);
         }
 
         return exempted;
@@ -165,7 +160,7 @@ class EnumChecker extends BaseChecker {
         
         // Store enum members
         (t.members || []).forEach((v: IEnumValue) => {
-            var vKey = `${key}:${v.name}:${v.value}`;
+            var vKey = `${key}::${v.name}:${v.value}`;
             this.storeByKey(vKey, v);
         });
 
@@ -179,7 +174,7 @@ class EnumChecker extends BaseChecker {
         // Don't check members of this enum if enum is exempted
         if (!checkResult.exempted) {
             (t.members || []).forEach((v: IEnumValue) => {
-                var vKey = `${checkResult.key}:${v.name}:${v.value}`;
+                var vKey = `${checkResult.key}::${v.name}:${v.value}`;
                 this.checkByKey(vKey, v);
             });
         }
@@ -266,11 +261,11 @@ checkers["field"] = new FieldChecker();
 
 class FunctionChecker extends BaseChecker {
     private getParamKey(p: IParameter, i: number, key: string): string {
-        return `${key}:${p.optional ? "optional" : "required"}-param:${i}:${JSON.stringify(p) }`;
+        return `${key}**${p.optional ? "optional" : "required"}-param:${i + 1}::${JSON.stringify(p) }`;
     }
 
     private getReturnsKey(t: IFunction, key: string): string {
-        return `${key}:returns:${JSON.stringify(t.returns) }`;
+        return `${key}**returns::${JSON.stringify(t.returns) }`;
     }
 
     protected getId(t: IFunction): string {
@@ -302,6 +297,9 @@ class FunctionChecker extends BaseChecker {
         if (!checkResult.exempted) {
             (t.parameters || []).forEach((p: IParameter, i: number) => {
                 var pKey = this.getParamKey(p, i, checkResult.key);
+                if (prefix.indexOf("SearchCore") >= 0) {
+                    console.log('test' + pKey);
+                }
                 this.checkByKey(pKey, p);
             });
 
@@ -341,3 +339,29 @@ class IndexChecker extends BaseChecker {
 }
 
 checkers["index"] = new IndexChecker();
+
+class AliasChecker extends BaseChecker {
+    public store(t: IAlias, prefix: string): string {
+        // Store interface itself first
+        var key = super.store(t, prefix);
+        
+        // Store the type of this alias
+        storeTypes(t.type, key);
+
+        return key;
+    }
+
+    public check(t: IAlias, prefix: string): CheckResult {
+        // Check interface itself first
+        var checkResult = super.check(t, prefix);
+        
+        // Don't check signatures of this interface if interface is exempted
+        if (!checkResult.exempted) {
+            checkTypes(t.type, checkResult.key);
+        }
+
+        return checkResult;
+    }}
+
+
+checkers["alias"] = new AliasChecker();
