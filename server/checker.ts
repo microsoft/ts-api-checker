@@ -154,13 +154,17 @@ class InterfaceChecker extends BaseChecker {
 checkers["interface"] = new InterfaceChecker();
 
 class EnumChecker extends BaseChecker {
+    private getEnumValueKey(v: IEnumValue, key: string): string {
+        return `${key}**value::${v.name}:${v.value}`;
+    }
+    
     public store(t: IEnum, prefix: string): string {
         // Store enum itself first
         var key = super.store(t, prefix);
         
         // Store enum members
         (t.members || []).forEach((v: IEnumValue) => {
-            var vKey = `${key}::${v.name}:${v.value}`;
+            var vKey = this.getEnumValueKey(v, key);
             this.storeByKey(vKey, v);
         });
 
@@ -174,7 +178,7 @@ class EnumChecker extends BaseChecker {
         // Don't check members of this enum if enum is exempted
         if (!checkResult.exempted) {
             (t.members || []).forEach((v: IEnumValue) => {
-                var vKey = `${checkResult.key}::${v.name}:${v.value}`;
+                var vKey = this.getEnumValueKey(v, checkResult.key);
                 this.checkByKey(vKey, v);
             });
         }
@@ -261,7 +265,7 @@ checkers["field"] = new FieldChecker();
 
 class FunctionChecker extends BaseChecker {
     private getParamKey(p: IParameter, i: number, key: string): string {
-        return `${key}**${p.optional ? "optional" : "required"}-param:${i + 1}::${JSON.stringify(p) }`;
+        return `${key}**${p.optional ? "optional" : "required"}-param:${i + 1}::${JSON.stringify(p.type) }`;
     }
 
     private getReturnsKey(t: IFunction, key: string): string {
@@ -297,9 +301,6 @@ class FunctionChecker extends BaseChecker {
         if (!checkResult.exempted) {
             (t.parameters || []).forEach((p: IParameter, i: number) => {
                 var pKey = this.getParamKey(p, i, checkResult.key);
-                if (prefix.indexOf("SearchCore") >= 0) {
-                    console.log('test' + pKey);
-                }
                 this.checkByKey(pKey, p);
             });
 

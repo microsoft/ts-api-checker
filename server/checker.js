@@ -134,13 +134,16 @@ var EnumChecker = (function (_super) {
     function EnumChecker() {
         _super.apply(this, arguments);
     }
+    EnumChecker.prototype.getEnumValueKey = function (v, key) {
+        return key + "**value::" + v.name + ":" + v.value;
+    };
     EnumChecker.prototype.store = function (t, prefix) {
         var _this = this;
         // Store enum itself first
         var key = _super.prototype.store.call(this, t, prefix);
         // Store enum members
         (t.members || []).forEach(function (v) {
-            var vKey = key + "::" + v.name + ":" + v.value;
+            var vKey = _this.getEnumValueKey(v, key);
             _this.storeByKey(vKey, v);
         });
         return key;
@@ -152,7 +155,7 @@ var EnumChecker = (function (_super) {
         // Don't check members of this enum if enum is exempted
         if (!checkResult.exempted) {
             (t.members || []).forEach(function (v) {
-                var vKey = checkResult.key + "::" + v.name + ":" + v.value;
+                var vKey = _this.getEnumValueKey(v, checkResult.key);
                 _this.checkByKey(vKey, v);
             });
         }
@@ -239,7 +242,7 @@ var FunctionChecker = (function (_super) {
         _super.apply(this, arguments);
     }
     FunctionChecker.prototype.getParamKey = function (p, i, key) {
-        return key + "**" + (p.optional ? "optional" : "required") + "-param:" + (i + 1) + "::" + JSON.stringify(p);
+        return key + "**" + (p.optional ? "optional" : "required") + "-param:" + (i + 1) + "::" + JSON.stringify(p.type);
     };
     FunctionChecker.prototype.getReturnsKey = function (t, key) {
         return key + "**returns::" + JSON.stringify(t.returns);
@@ -269,9 +272,6 @@ var FunctionChecker = (function (_super) {
         if (!checkResult.exempted) {
             (t.parameters || []).forEach(function (p, i) {
                 var pKey = _this.getParamKey(p, i, checkResult.key);
-                if (prefix.indexOf("SearchCore") >= 0) {
-                    console.log('test' + pKey);
-                }
                 _this.checkByKey(pKey, p);
             });
             // Check returns type
